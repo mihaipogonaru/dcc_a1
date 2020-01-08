@@ -50,3 +50,16 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+/Debug/
+
+# Eclipse
+.project
+.cproject
+.settings
+
+# Binaries
+dcc_a1
+tester
+
+# Files
+*.config

@@ -28,3 +28,11 @@ I was able to correctly send 32 bytes across in under 2 mins and 240 in ~10 mins
 
 To run the assignment you have to change the VM's ip addresses in scripts/vm_ips.sh
 and run scripts/run_test with a test file as a parameter.
+
+A manual run consists in: "make", copy dcc_a1 to vms, ./scripts/prepare_run.sh,
+./dcc_a1 recv file on the receiver vm, ./dcc_a1 send file on the sender vm
+
+Prepare run is supposed to calculate:
+- the duration of a bit 
+- the "clock" value returned by the "cable controller" when the vm is alone one the core and when it isn't
+and get the middle value

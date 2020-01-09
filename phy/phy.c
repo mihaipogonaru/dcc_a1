@@ -1,24 +1,58 @@
 #include <stdio.h>
-#include <errno.h>
 
 #include "cable.h"
 #include "phy.h"
 
-/* bits of 1 to consider the receiver reading */
+/* Intervals of sleep_per_bit_ns in which the lane is high
+ * that must pass to consider the receiver reading
+ *
+ * A.k.a we wait some time and check if the lane is high
+ */
 #define RECEIVER_READING_THRESHOLD 8
-/* max bits to wait for receiver to be reading */
+
+/* Max intervals to wait for receiver to be reading */
 #define RECEIVER_READING_MAX_WAIT 16
 
-static char preamble[] = {0xAE, 0xAA, 0xAA, 0x75} /* 10101110, 10101010, 10101010, 01111010 */;
+static unsigned long sleep_per_bit_ns;
+static unsigned long clocks_per_bit;
 
-void init_phy(unsigned long sleep_per_bit_ns,
-        unsigned long th_clocks_per_bit)
+static char preamble[] = {0xAA, 0xFA} /* 10101010, 11111010 */;
+
+void init_phy(unsigned long sleep_per_bit_ns_,
+        unsigned long clocks_per_bit_)
 {
-    init_cable(sleep_per_bit_ns, th_clocks_per_bit);
+    sleep_per_bit_ns = sleep_per_bit_ns_;
+    clocks_per_bit = clocks_per_bit_;
 }
 void uninit_phy(void)
+{}
+
+static int send_bit(char bit)
 {
-    uninit_cable();
+    int ret;
+
+    if (bit)
+        ret = keep_lane_high(sleep_per_bit_ns);
+    else
+        ret = keep_lane_low(sleep_per_bit_ns);
+
+    return ret;
+}
+
+static int recv_bit(void)
+{
+    unsigned long elapsed;
+
+    elapsed = keep_lane_high(sleep_per_bit_ns);
+    if (elapsed < clocks_per_bit)
+        return 1;
+
+    return 0;
+}
+
+static int lane_is_high(void)
+{
+    return recv_bit() == 1;
 }
 
 static int send_byte(char byte)
@@ -83,7 +117,6 @@ static int recv_preamble(void)
             bit = (preamble[i] >> j) & 1;
             if (bit != ret)
                 break;
-            printf("Correct bit %hhu %hhu %d!\n", bit, ret, j);
         }
 
         /* If we didn't receive all the bits correctly */
@@ -103,7 +136,7 @@ static int recv_preamble(void)
  * the receiver lets the lane low for the ifg duration
  *
  * We check that for the next ifg_length bytes at least
- * ifg_length / 2 are 0x00
+ * ifg_length are 0x00
  */
 static int check_ifg(void)
 {
@@ -116,10 +149,14 @@ static int check_ifg(void)
             count++;
     }
 
-    return count >= IFG_LENGTH / 2;
+    if (count < IFG_LENGTH)
+        return -1;
+
+    return 0;
 }
 
-static int wait_receiver_reading(void)
+/* Checks if the receiver is reading */
+static int check_receiver_reading(void)
 {
     int i, counter = 0;
 
@@ -136,12 +173,12 @@ static int wait_receiver_reading(void)
     return -1;
 }
 
-int transmit_frame(char *buf)
+int transmit_frame(char *frame)
 {
     int ret;
 
-    printf("WAITING RECEVIER\n");
-    ret = wait_receiver_reading();
+    printf("WAITING RECEVIER TO READ\n");
+    ret = check_receiver_reading();
     if (ret)
         return ret;
 
@@ -151,28 +188,38 @@ int transmit_frame(char *buf)
         return ret;
 
     printf("SENDING DATA\n");
-    ret = do_transmit(buf, FRAME_LENGTH);
+    ret = do_transmit(frame, FRAME_LENGTH);
     if (ret)
         return ret;
 
+    printf("WAITING FOR IFG\n");
     return check_ifg();
 }
 
-int receive_frame(char *buf)
+int receive_frame(char *frame)
 {
-    int ret, len = 0;
+    int i, ret;
 
     ret = recv_preamble();
     if (ret)
         return ret;
 
-    while (len < FRAME_LENGTH) {
+    i = 0;
+    while (i < FRAME_LENGTH) {
         ret = recv_byte();
         if (ret < 0)
             return ret;
 
-        buf[len++] = ret;
+        frame[i++] = ret;
     }
 
-    return len;
+    printf("LANE LOW FOR IFG\n");
+    /* Leave IFG after frame */
+    for (i = 0; i < 8 * IFG_LENGTH; ++i) {
+        ret = keep_lane_low(sleep_per_bit_ns);
+        if (ret)
+            return ret;
+    }
+
+    return 0;
 }

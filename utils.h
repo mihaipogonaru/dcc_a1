@@ -6,6 +6,8 @@
 #define NS_PER_MSECOND 1000 * 1000
 #define NS_PER_SECOND NS_PER_MSECOND * 1000
 
+#define MIN(x, y) ((x) < (y) ? (x) : (y))
+
 static inline unsigned long ts_diff_in_ns(
         struct timespec * restrict t2,
         struct timespec * restrict t1)

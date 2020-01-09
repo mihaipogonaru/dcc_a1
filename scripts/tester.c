@@ -7,27 +7,28 @@
 #include "../phy/cable.h"
 #include "../phy/phy.h"
 
-extern unsigned long get_th_clock();
-
 int main(int argc, char *argv[])
 {
-    if (strcmp(argv[1], "runner") == 0) {
-        for (;;);
-    } else {
-        unsigned long elapsed;
-        unsigned long sleep_per_bit_ns;
+    unsigned long elapsed = 0;
+    unsigned long sleep_per_bit_ns;
 
-        sleep_per_bit_ns = strtoul(argv[2], NULL, 10);
+    sleep_per_bit_ns = strtoul(argv[2], NULL, 10);
+
+    if (strcmp(argv[1], "runner") == 0) {
+        for (;;)
+            keep_lane_high(sleep_per_bit_ns);
+    } else {
+        int i;
 
         init_phy(sleep_per_bit_ns, 0);
         printf("Receiving\n");
-        recv_bit();
+        for (i = 0; i < 3; ++i)
+            elapsed += keep_lane_high(sleep_per_bit_ns);
         printf("Done\n");
 
-        elapsed = get_th_clock();
         uninit_phy();
 
-        printf("%lu\n", elapsed);
+        printf("%lu\n", elapsed / 3);
     }
 
     return 0;

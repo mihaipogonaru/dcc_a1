@@ -8,7 +8,7 @@ cd $(dirname "$0")
 
 source vm_ips.sh
 
-gcc tester.c ../phy/phy.c ../phy/cable.c -O0 -Wall -Werror -lpthread -o tester
+gcc tester.c ../phy/phy.c ../phy/cable.c -O0 -Wall -Werror -o tester
 [[ -f tester ]] || exit -1
 
 ./send_to_vms.sh "tester"

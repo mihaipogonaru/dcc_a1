@@ -15,7 +15,7 @@ for sleep in ${SLEEP_PER_BIT_MS[@]}; do
     c1=$(taskset 0x1 ./tester "not_runner" "$s_ns" | tail -1)
     c1_third=$(expr $c1 / 3)
     
-    taskset 0x1 ./tester "runner" &
+    taskset 0x1 ./tester "runner" "$s_ns" &
     PID=$!
     
     c2=$(taskset 0x1 ./tester "not_runner" "$s_ns" | tail -1)

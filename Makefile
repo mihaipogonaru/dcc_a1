@@ -1,5 +1,5 @@
 .PHONY: all clean
-FALGS = -O0 -Wall -Wextra -lpthread
+FALGS = -O0 -Wall -Wextra
 
 all: dcc_a1
 

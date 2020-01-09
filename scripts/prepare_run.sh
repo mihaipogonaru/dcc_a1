@@ -20,3 +20,4 @@ gcc tester.c ../phy/phy.c ../phy/cable.c -O0 -Wall -Werror -o tester
 scp root@${VM1_IP}:~/times.config times.config.tmp
 scp times.config.tmp root@${VM2_IP}:~/times.config
 rm times.config.tmp
+rm tester

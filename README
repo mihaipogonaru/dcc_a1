@@ -1,0 +1,30 @@
+To comunicate between VMs we use a CPU-based covert channel.
+
+Our "cable controller" can keep the "lane" high for a duration - spin
+incrementing a "clock" value and return it - or keep it low.
+
+The physical layer uses the functions exposed by the "cable controller"
+to send bits across: to send a 1 we keep the lane high for the duration
+of a bit (calculated by the prepare_run script) and to send a 0 we keep the
+lane low for the duration of a bit. To read a bit we keep the lane high
+and compare the clock value returned by the "cable controller" with a
+constant value (calculated by the prepare_run script) to see if the other
+vm was sending us a 1 or a 0.
+
+The physical layer can get frames across, a frame consists of a 2 byte
+preamble (used to sync the two vm's), 8 bytes of data, 1 byte representing
+the frame sequence (can have 2 values - used to detect a duplicate frame at
+the receiver), 1 byte of fcs (crc8).
+After each frame the receiver will keep the lane low for "IFG" bytes to signal
+that the frame was received correctly (seq and fcs matched). If the frame was
+not received successfully, the receiver will go right back to reading as soon
+as it realizez that the frame is not ok (the lane will be high) and the sender
+will resend the frame.
+
+The sender send the size of the file in bytes, then the contents. The receiver
+waits for the size of the file in bytes, then the contents.
+
+I was able to correctly send 32 bytes across in under 2 mins and 240 in ~10 mins.
+
+To run the assignment you have to change the VM's ip addresses in scripts/vm_ips.sh
+and run scripts/run_test with a test file as a parameter.

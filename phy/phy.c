@@ -13,28 +13,38 @@
 /* Max intervals to wait for receiver to be reading */
 #define RECEIVER_READING_MAX_WAIT 16
 
-static unsigned long sleep_per_bit_ns;
-static unsigned long clocks_per_bit;
+static char preamble[] = {0xAA, 0xFA} /* 10101010, 10101010, 11111010 */;
 
-static char preamble[] = {0xAA, 0xFA} /* 10101010, 11111010 */;
+static struct {
+    unsigned long sleep_per_bit_ns;
+    unsigned long clocks_per_bit;
+    check_recv_frame check_recv_frame_fn;
+} phy;
 
-void init_phy(unsigned long sleep_per_bit_ns_,
-        unsigned long clocks_per_bit_)
+void init_phy(check_recv_frame check_recv_frame_fn,
+        unsigned long sleep_per_bit_ns,
+        unsigned long clocks_per_bit)
 {
-    sleep_per_bit_ns = sleep_per_bit_ns_;
-    clocks_per_bit = clocks_per_bit_;
+    phy.check_recv_frame_fn = check_recv_frame_fn;
+    phy.sleep_per_bit_ns = sleep_per_bit_ns;
+    phy.clocks_per_bit = clocks_per_bit;
 }
+
 void uninit_phy(void)
-{}
+{
+    phy.check_recv_frame_fn = NULL;
+    phy.sleep_per_bit_ns = 0;
+    phy.clocks_per_bit = 0;
+}
 
 static int send_bit(char bit)
 {
     int ret;
 
     if (bit)
-        ret = keep_lane_high(sleep_per_bit_ns);
+        ret = keep_lane_high(phy.sleep_per_bit_ns);
     else
-        ret = keep_lane_low(sleep_per_bit_ns);
+        ret = keep_lane_low(phy.sleep_per_bit_ns);
 
     return ret;
 }
@@ -43,8 +53,8 @@ static int recv_bit(void)
 {
     unsigned long elapsed;
 
-    elapsed = keep_lane_high(sleep_per_bit_ns);
-    if (elapsed < clocks_per_bit)
+    elapsed = keep_lane_high(phy.sleep_per_bit_ns);
+    if (elapsed < phy.clocks_per_bit)
         return 1;
 
     return 0;
@@ -124,10 +134,8 @@ static int recv_preamble(void)
             break;
     }
 
-    if (i == sizeof(preamble)) {
-        printf("Received start!\n");
+    if (i == sizeof(preamble))
         return 0;
-    }
 
     return -1;
 }
@@ -135,8 +143,11 @@ static int recv_preamble(void)
 /* To mark a frame as received correctly
  * the receiver lets the lane low for the ifg duration
  *
- * We check that for the next ifg_length bytes at least
- * ifg_length are 0x00
+ * We check that in the next ifg_length bytes
+ * at lease ifg_length/2 are 0x00
+ *
+ * We do this because after receiving the frame
+ * the receiver must calculate the crc
  */
 static int check_ifg(void)
 {
@@ -149,13 +160,17 @@ static int check_ifg(void)
             count++;
     }
 
-    if (count < IFG_LENGTH)
+    if (count < IFG_LENGTH / 2)
         return -1;
 
     return 0;
 }
 
-/* Checks if the receiver is reading */
+/* Checks if the receiver is reading
+ *
+ * When the receiver is reading the lane must be high
+ * (since it's keeping the lane high to read)
+ */
 static int check_receiver_reading(void)
 {
     int i, counter = 0;
@@ -177,22 +192,22 @@ int transmit_frame(char *frame)
 {
     int ret;
 
-    printf("WAITING RECEVIER TO READ\n");
+    printf("Waiting receiver to read\n");
     ret = check_receiver_reading();
     if (ret)
         return ret;
 
-    printf("SENDING PREAMBLE\n");
+    printf("Sending preamble\n");
     ret = send_preamble();
     if (ret)
         return ret;
 
-    printf("SENDING DATA\n");
+    printf("Sending data\n");
     ret = do_transmit(frame, FRAME_LENGTH);
     if (ret)
         return ret;
 
-    printf("WAITING FOR IFG\n");
+    printf("Waiting for IFG\n");
     return check_ifg();
 }
 
@@ -200,23 +215,34 @@ int receive_frame(char *frame)
 {
     int i, ret;
 
+    printf("Receiving preamble\n");
     ret = recv_preamble();
     if (ret)
         return ret;
 
-    i = 0;
-    while (i < FRAME_LENGTH) {
+    printf("Receiving data\n");
+    for (i = 0; i < FRAME_LENGTH; i++) {
         ret = recv_byte();
         if (ret < 0)
             return ret;
 
-        frame[i++] = ret;
+        frame[i] = ret;
     }
 
-    printf("LANE LOW FOR IFG\n");
-    /* Leave IFG after frame */
+    /* Check with upper layer if the frame received is */
+    printf("Checking frame with upper layer\n");
+    if (phy.check_recv_frame_fn) {
+        ret = phy.check_recv_frame_fn(frame);
+        if (ret)
+            return ret;
+    }
+
+    /* Leave IFG after frame
+     * We use IFG to acknowledge a frame
+     */
+    printf("Frame OK. Lane low for IFG\n");
     for (i = 0; i < 8 * IFG_LENGTH; ++i) {
-        ret = keep_lane_low(sleep_per_bit_ns);
+        ret = keep_lane_low(phy.sleep_per_bit_ns);
         if (ret)
             return ret;
     }

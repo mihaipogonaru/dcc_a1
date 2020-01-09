@@ -6,7 +6,7 @@ set -e
 # cd into the scripts dir
 cd $(dirname "$0")
 
-SLEEP_PER_BIT_MS=("100" "150" "200" "400")
+SLEEP_PER_BIT_MS=("100" "150" "200" "300" "400")
 
 for sleep in ${SLEEP_PER_BIT_MS[@]}; do
     # sleep in ns

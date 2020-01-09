@@ -5,7 +5,6 @@
 #include <time.h>
 
 #include "../phy/cable.h"
-#include "../phy/phy.h"
 
 int main(int argc, char *argv[])
 {
@@ -20,13 +19,10 @@ int main(int argc, char *argv[])
     } else {
         int i;
 
-        init_phy(sleep_per_bit_ns, 0);
         printf("Receiving\n");
         for (i = 0; i < 3; ++i)
             elapsed += keep_lane_high(sleep_per_bit_ns);
         printf("Done\n");
-
-        uninit_phy();
 
         printf("%lu\n", elapsed / 3);
     }

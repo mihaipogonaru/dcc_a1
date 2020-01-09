@@ -15,7 +15,7 @@ cable.o: phy/cable.c phy/cable.h
 l2.o: l2/l2.c l2/l2.h l2/checksum.h phy/phy.h
 	gcc $(FALGS) -c $< -o $@
 
-checksum.o: l2/crc16.c l2/checksum.h
+checksum.o: l2/crc8.c l2/crc16.c l2/checksum.h
 	gcc $(FALGS) -c $< -o $@
 
 clean:

@@ -8,7 +8,7 @@
 
 #include "l2/l2.h"
 
-#define TO_SEND "Hello, World!"
+#define TO_SEND "Hello, World!-=-"
 
 unsigned long sleep_per_bit_ns;
 unsigned long th_clocks_per_bit;
@@ -29,6 +29,8 @@ static void read_times_config(void)
 
 int main(int argc, char *argv[])
 {
+    int ret;
+
     if (argc < 2) {
         printf("Too few parameters\n");
         return -1;
@@ -39,21 +41,23 @@ int main(int argc, char *argv[])
     if (strcmp(argv[1], "send") == 0) {
         init_phy(sleep_per_bit_ns, th_clocks_per_bit);
         printf("Sending\n");
-        transmit(TO_SEND, sizeof(TO_SEND) - 1);
-        printf("SENT\n");
+        ret = transmit_frame(TO_SEND);
+        printf("SENT %d\n", ret);
     } else {
-        int len;
-        char buf[20];
+        char buf[FRAME_LENGTH + 1];
 
         init_phy(sleep_per_bit_ns, th_clocks_per_bit);
         printf("Receiving\n");
 
-        len = receive(buf, 20, 1000);
-        printf("Received %d bytes\n", len);
-        if (len >= 0) {
-            buf[len] = '\0';
-            printf("Msg: %s\n", buf);
-        }
+        do {
+            ret = receive_frame(buf);
+            printf("Received %d bytes\n", ret);
+            if (ret >= 0) {
+                buf[ret] = '\0';
+                printf("Msg: %s\n", buf);
+            }
+        } while (ret < 0);
+
     }
 
     uninit_phy();

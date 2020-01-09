@@ -7,6 +7,6 @@ void uninit_cable(void);
 
 int send_bit(char bit);
 int recv_bit(void);
-int is_lane_high(void);
+int lane_is_high(void);
 
 #endif /* DCC_A1_CABLE_H */

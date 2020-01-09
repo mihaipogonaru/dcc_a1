@@ -29,7 +29,7 @@ static void *cable_th_fn(void *arg __attribute__((unused)))
 
         /* Check and do work */
         while (!cable_th.should_stop && cable_th.lane_high)
-            cable_th.clock++;
+            __atomic_add_fetch(&cable_th.clock, 1, __ATOMIC_SEQ_CST);
 
         pthread_mutex_lock(&cable_th.mtx);
         while (!cable_th.should_stop && !cable_th.lane_high) {
@@ -49,13 +49,13 @@ static void *cable_th_fn(void *arg __attribute__((unused)))
 
 static void reset_th_clock(void)
 {
-    cable_th.clock = 0;
+    __atomic_store_n(&cable_th.clock, 0, __ATOMIC_SEQ_CST);
 }
 
 /* Not defined as static to be able to use it in tester, meh */
 unsigned long get_th_clock(void)
 {
-    return cable_th.clock;
+    return __atomic_load_n(&cable_th.clock, __ATOMIC_SEQ_CST);
 }
 
 static void wait_th_sleep(void)
@@ -67,17 +67,17 @@ static void wait_th_sleep(void)
     pthread_mutex_unlock(&cable_th.mtx);
 }
 
-static void busy_wait_th_sleep(void)
-{
-    /* Wait for thread to sleep */
-    while (cable_th.running);
-}
-
-static void busy_wait_th_run(void)
-{
-    /* Wait for thread to run */
-    while (!cable_th.running);
-}
+//static void busy_wait_th_sleep(void)
+//{
+//    /* Wait for thread to sleep */
+//    while (cable_th.running);
+//}
+//
+//static void busy_wait_th_run(void)
+//{
+//    /* Wait for thread to run */
+//    while (!cable_th.running);
+//}
 
 static void set_lane_high(void)
 {
@@ -196,7 +196,7 @@ int recv_bit(void)
     return 0;
 }
 
-int is_lane_high(void)
+int lane_is_high(void)
 {
     return recv_bit() == 1;
 }

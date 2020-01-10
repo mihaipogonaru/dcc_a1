@@ -19,7 +19,7 @@ make -f Makefile
 
 # send executable to vms
 scp dcc_a1 root@${VM1_IP}:~
-scp dcc_a1 root@${VM1_IP}:~
+scp dcc_a1 root@${VM2_IP}:~
 
 # send test file to vm1
 scp $1 root@${VM1_IP}:~/file
